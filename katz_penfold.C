@@ -9,7 +9,11 @@
  */
 
 #include <iostream>
+#include <fstream>
 #include <cmath>
+// ROOT
+#include "TCanvas.h"
+#include "TGraph.h"
 
 // these values are taken directly from the paper ...
 const double a = 0.412;
@@ -34,13 +38,46 @@ double ElectronEnergyFromRange(double r/*in cm*/, double d/*in g/cm³*/)
 
 // for comparison with
 // https://physics.nist.gov/PhysRefData/Star/Text/ESTAR.html
-void katz_penfold(double in_energy/*in MeV*/)
+void KatzPenfold(double in_energy/*in MeV*/)
 {
     // argon, see https://physics.nist.gov/cgi-bin/Star/compos.pl?matno=018
-    const double d = 1.78e-3;
+    const double d = 1.78e-3; // g/cm³
     
     double r = RangeFromEnergy(in_energy, d);
     double e = ElectronEnergyFromRange(r, d);
 
     std::cout << "E " << e << " MeV,\t R " << r*d << " g/cm^2" << std::endl;
+}
+
+void CompareKatzPenfold(std::string in_file="NIST-electron-data_argon.dat")
+{
+    double nist_e, nist_r, calc_e;
+    std::fstream in_stream(in_file, std::ios_base::in);
+    const double density = 1.78e-3;
+
+    TGraph* calc_graph = new TGraph();
+    TGraph* nist_graph = new TGraph();
+    unsigned int graph_i = 0;
+
+    while (in_stream >> nist_e >> nist_r)
+    {
+        calc_e = ElectronEnergyFromRange(nist_r/density, density);
+        if (std::isnan(calc_e)) continue;
+
+        nist_graph->SetPoint(graph_i, nist_r, nist_e);
+        calc_graph->SetPoint(graph_i, nist_r, calc_e);
+        graph_i++;
+    }
+
+    TCanvas *c1 = new TCanvas("c1","comparison", 300, 150, 960, 720);
+    c1->cd();
+
+    calc_graph->SetNameTitle("grC", "comparison of Katz-Penfold with NIST");
+    //calc_graph->GetXaxis()->SetTitle("electron range / cm");
+    //calc_graph->GetYaxis()->SetTitle("energy / MeV");
+    calc_graph->Draw("AC");
+    //nist_graph->SetNameTitle("grN", "");
+    nist_graph->Draw("same");
+
+    in_stream.close();
 }
